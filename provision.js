@@ -25,8 +25,6 @@ function duplicateSheet(fromSheet, toSheet) {
     dataRange.setValues(templateData.getValues());
   }
 
-
-
   return symbolsheet;
 }
 
@@ -109,9 +107,11 @@ function checkBuyingState(price, valuerange) {
 //  return rows;
 //}
 
-function QueryStockValuesEx(Sheet, Symbol, HistoryDays, Interval, MaxRecords) {
+function QueryStockValuesEx(SheetName, symbol, HistoryDays, Interval, MaxRecords) {
   var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  var Sheet = spreadsheet.getSheetByName(Sheet);
+  var Sheet = spreadsheet.getSheetByName(SheetName);
+
+  var yahoo = new YahooFinance();
 
   // Range Variables
   var SymbolCell = "A1";
@@ -121,43 +121,31 @@ function QueryStockValuesEx(Sheet, Symbol, HistoryDays, Interval, MaxRecords) {
   var TitleEnd = Sheet.getLastColumn() - TitleStart + 1;
 
   //Reset symbol to query values
-  Sheet.getRange(1, TitleStart, 1, TitleEnd).clearContent();
+  //Sheet.getRange(1, TitleStart, 1, TitleEnd).clearContent();
   Sheet.getRange(1, 1, MaxRecords, 2).clearContent();
 
   // Fetch Data
-  var data = YahooQueryStockHistorical(Symbol, HistoryDays, Interval, MaxRecords);
+  var data = yahoo.QueryHistorical(symbol, HistoryDays, Interval);
 
   var dataRow = data.length;
-  var offset = 1;
+  var offsetDate = 0;
+  var offsetClose = 4;
   var endRow = dataRow <= MaxRecords ? dataRow : MaxRecords;
   for (var i = 0; i < endRow - 1; ++i) {
     // Copy price data
     var index = i + 1;
-    Sheet.getRange(endRow - i, 1, 1, 1).setValue(data[index][0]);
-    Sheet.getRange(endRow - i, 2, 1, 1).setValue(data[index][4]);
+    Sheet.getRange(endRow - i, 1, 1, 1).setValue(data[index][offsetDate]);
+    Sheet.getRange(endRow - i, 2, 1, 1).setValue(data[index][offsetClose]);
   }
 
   //Update title
-  Sheet.getRange(SymbolCell).setValue(Symbol);
+  Sheet.getRange(SymbolCell).setValue(symbol);
   Sheet.getRange(HistoricalCell).setValue(data[0][0]);
   Sheet.getRange("B2").setValue(data[0][4]);
-  Sheet.getRange(1, TitleStart, 1, TitleEnd).setValues(Sheet.getRange(endRow, TitleStart, 1, TitleEnd).getValues());
 
   return dataRow;
 
 }
-
-//function provision(symbol) {
-//  // get global sheet
-//  //var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-//
-//  // create new sheet from template
-//  //var symbolsheet = duplicateSheet("template", symbol);
-//
-//  // Query value to Day and Week Sheet
-//  QueryStockValues("Day", symbol, 380, 1, 250);
-//  QueryStockValues("Week", symbol, 3650, 7, 500);
-//}
 
 function provisionEx(symbol) {
 
@@ -166,7 +154,6 @@ function provisionEx(symbol) {
   QueryStockValuesEx("Week", symbol, 3650, 7, 500);
 
 }
-
 
 function provisionSheets(sheetName) {
   var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
@@ -203,14 +190,13 @@ function provisionSheets(sheetName) {
       var y5 = WeekSheet.getRange("K1:O1").getValues();
       var y10 = WeekSheet.getRange("R1:V1").getValues();
 
-      states.push([checkBuyingState(values[i][2], day20),
-      checkBuyingState(values[i][2], day50),
-      checkBuyingState(values[i][2], day120),
-      checkBuyingState(values[i][2], y1),
-      checkBuyingState(values[i][2], y5),
-      checkBuyingState(values[i][2], y10)
+      states.push([ checkBuyingState(values[i][2], day20),
+                    checkBuyingState(values[i][2], day50),
+                    checkBuyingState(values[i][2], day120),
+                    checkBuyingState(values[i][2], y1),
+                    checkBuyingState(values[i][2], y5),
+                    checkBuyingState(values[i][2], y10)
       ]);
-
 
       //
       // modify here if dashboard change
