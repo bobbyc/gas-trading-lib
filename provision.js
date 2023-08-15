@@ -33,23 +33,24 @@ function duplicateSheet(fromSheet, toSheet) {
 //
 function checkBuyingState(price, valuerange) {
 
-  var states = [["OS", "SS", "NS", "NB", "SB", "OB"]];
+  var RATING = ["OS", "SS", "NS", "NB", "SB", "OB"];
 
-  if (!valuerange[0][0] || !valuerange[0][4])
+  var vrange = valuerange[0];
+  if (!vrange[0] || !vrange[4])
     return "";
 
-  if (price <= valuerange[0][0])
-    return states[0][0];
-  else if (price > valuerange[0][0] && price <= valuerange[0][1])
-    return states[0][1];
-  else if (price > valuerange[0][1] && price <= valuerange[0][2])
-    return states[0][2];
-  else if (price > valuerange[0][2] && price <= valuerange[0][3])
-    return states[0][3];
-  else if (price > valuerange[0][3] && price <= valuerange[0][4])
-    return states[0][4];
-  else if (price > valuerange[0][4])
-    return states[0][5];
+  if (price <= vrange[0])
+    return RATING[0];
+  else if (price > vrange[0] && price <= vrange[1])
+    return RATING[1];
+  else if (price > vrange[1] && price <= vrange[2])
+    return RATING[2];
+  else if (price > vrange[2] && price <= vrange[3])
+    return RATING[3];
+  else if (price > vrange[3] && price <= vrange[4])
+    return RATING[4];
+  else if (price > vrange[4])
+    return RATING[5];
 
   return "";
 
@@ -84,7 +85,7 @@ function checkBuyingState(price, valuerange) {
 //    var randomWait = Math.floor(Math.random()*1+0); randomWait;
 //    var values = Sheet.getRange("A1:B2").getValues();
 //    bDateFound = values.toString().search("Date");
-//  Logger.log(values);
+//    console.log(values);
 //
 //  }
 //
@@ -97,8 +98,8 @@ function checkBuyingState(price, valuerange) {
 //      if (QueryValues[rows][0] == "")
 //        break;
 //    }
-//    Logger.log(QueryValues);
-//    Logger.log(rows);
+//    console.log(QueryValues);
+//    console.log(rows);
 //
 //    //Update title
 //    Sheet.getRange(1, TitleStart, 1, TitleEnd).setValues( Sheet.getRange(rows, TitleStart, 1, TitleEnd).getValues() );
@@ -127,12 +128,13 @@ function QueryStockValuesEx(SheetName, symbol, HistoryDays, Interval, MaxRecords
   // Fetch Data
   var data = yahoo.QueryHistorical(symbol, HistoryDays, Interval);
 
+  // Calculate history data
   var dataRow = data.length;
   var offsetDate = 0;
   var offsetClose = 4;
   var endRow = dataRow <= MaxRecords ? dataRow : MaxRecords;
   for (var i = 0; i < endRow - 1; ++i) {
-    // Copy price data
+    // Copy history data
     var index = i + 1;
     Sheet.getRange(endRow - i, 1, 1, 1).setValue(data[index][offsetDate]);
     Sheet.getRange(endRow - i, 2, 1, 1).setValue(data[index][offsetClose]);
@@ -144,7 +146,6 @@ function QueryStockValuesEx(SheetName, symbol, HistoryDays, Interval, MaxRecords
   Sheet.getRange("B2").setValue(data[0][4]);
 
   return dataRow;
-
 }
 
 function provisionEx(symbol) {
@@ -167,11 +168,11 @@ function provisionSheets(sheetName) {
 
   for (var i = 1; i < numRows; i++) {
 
-    var symbol = values[i][0];
-    var rsi = values[i][18];
+    var row = values[i];
+    var symbol = row[0];
+    var rsi = row[18];
 
-    if ((symbol == "") ||
-      (rsi != ""))
+    if ((symbol == "") || (rsi != ""))
       continue;
 
     // create new sheet from template
@@ -180,8 +181,8 @@ function provisionSheets(sheetName) {
     // Update Dashboard table
     if (symbol != "") {
 
-      // update sold/bought states
-      var states = []
+      // update sold/bought rating
+      var rating = []
       var day20 = DaySheet.getRange("D1:H1").getValues();
       var day50 = DaySheet.getRange("K1:O1").getValues();
       var day120 = DaySheet.getRange("R1:V1").getValues();
@@ -190,12 +191,12 @@ function provisionSheets(sheetName) {
       var y5 = WeekSheet.getRange("K1:O1").getValues();
       var y10 = WeekSheet.getRange("R1:V1").getValues();
 
-      states.push([ checkBuyingState(values[i][2], day20),
-                    checkBuyingState(values[i][2], day50),
-                    checkBuyingState(values[i][2], day120),
-                    checkBuyingState(values[i][2], y1),
-                    checkBuyingState(values[i][2], y5),
-                    checkBuyingState(values[i][2], y10)
+      rating.push([ checkBuyingState(row[2], day20),
+                      checkBuyingState(row[2], day50),
+                      checkBuyingState(row[2], day120),
+                      checkBuyingState(row[2], y1),
+                      checkBuyingState(row[2], y5),
+                      checkBuyingState(row[2], y10)
       ]);
 
       //
@@ -209,17 +210,60 @@ function provisionSheets(sheetName) {
       range.offset(i, col_index, 1, range_day50.getNumColumns()).setValues(range_day50.getValues());
       col_index += range_day50.getNumColumns();
 
-      // update states
-      range.offset(i, col_index, 1, states[0].length).setValues(states);
-      col_index += states[0].length;
+      // update rating
+      range.offset(i, col_index, 1, rating[0].length).setValues(rating);
+      col_index += rating[0].length;
 
       // update RSI
       range.offset(i, col_index, 1, range_RSI.getNumColumns()).setValues(range_RSI.getValues());
       col_index += range_RSI.getNumColumns();
 
       // update table
-      //Logger.log(states);
-
+      //console.log(rating);
     }
   }
 }
+
+function provisionSheetsQuote(sheetName) {
+  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  var dashboard = spreadsheet.getSheetByName(sheetName);
+
+  var range = dashboard.getDataRange();
+  var values = range.getValues();
+  var numRows = range.getNumRows();
+
+  var yahoo = new YahooFinance();
+  for (var i = 1; i < numRows; i++) {
+    var row = values[i];
+    var symbol = row[0];
+    if ((symbol != ""))
+    {
+      // create new sheet from template
+      var quote = yahoo.Quote(symbol);
+      // console.log(quote);
+
+      // Update Dashboard table
+      if (quote != undefined) {
+        // update quote
+        let summary = quote['quoteSummary']['result'][0]
+        let price = summary['price'];
+        let price_market = price['regularMarketPrice']['fmt'];
+
+        let detail_52w_low = 0;
+        let detail_52w_high = 0;
+        if ("summaryDetail" in summary) {
+          let detail = quote['quoteSummary']['result'][0]['summaryDetail'];
+          detail_52w_low = detail['fiftyTwoWeekLow']['fmt']
+          detail_52w_high = detail['fiftyTwoWeekHigh']['fmt']
+        }
+
+        range.offset(i, 1, 1, 3).setValues([[
+          detail_52w_low, // quote['quoteSummary']['result'][0]['summaryDetail']['fiftyTwoWeekLow']['fmt'],
+          price_market,
+          detail_52w_high // quote['quoteSummary']['result'][0]['summaryDetail']['fiftyTwoWeekHigh']['fmt'],
+        ]]);
+      }
+    }
+  }
+}
+
